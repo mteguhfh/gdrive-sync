@@ -29,6 +29,11 @@ INTERVAL="5min"
 # Default: sources.txt di folder config yang sama.
 # SOURCES_FILE="$HOME/.config/gdrive-sync/sources.txt"
 
+# Jumlah proses rclone paralel saat backup (1-16, default 4).
+# rclone membuat folder Drive satu per satu di dalam satu proses (~1 folder/detik),
+# jadi 4 proses paralel bisa 4x lebih cepat. Naikkan kalau upload terasa lambat.
+# PARALLEL_JOBS="4"
+
 # Flag tambahan rclone (array bash), misal batasi bandwidth:
 # EXTRA_FLAGS=(--bwlimit 2M --transfers 4)
 EXTRA_FLAGS=()

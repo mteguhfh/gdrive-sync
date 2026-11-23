@@ -81,6 +81,29 @@ jadi subfolder di Drive: `Laptop/Documents`, `Laptop/Pictures`, dan seterusnya.
 Nama folder harus unik. Kalau daftar kosong, sync berhenti supaya tidak salah menyalin
 folder default.
 
+Backup jalan paralel per subfolder tingkat atas (`PARALLEL_JOBS`, default 4). rclone
+membuat folder di Drive satu per satu (~1 folder/detik per proses), jadi 4 proses paralel
+kira-kira 4x lebih cepat. Upload pertama yang besar bisa berjam-jam; setelah itu
+sync berikutnya cepat karena file yang sudah sama dilewati.
+
+## Membuat client ID Google sendiri
+
+rclone memakai client ID bersama milik rclone, dan Google mempensiunkannya selama 2026.
+Untuk pemakaian jangka panjang, buat client ID sendiri (gratis, sekali saja):
+
+1. <https://console.cloud.google.com/projectcreate> → buat project.
+2. **APIs & Services → Library** → aktifkan **Google Drive API**.
+3. **OAuth consent screen** → isi nama app, email, domain situs ini, privacy policy:
+   - Home: `https://mteguhfh.github.io/gdrive-sync/`
+   - Privacy: `https://mteguhfh.github.io/gdrive-sync/privacy.html`
+4. **Credentials → Create credentials → OAuth client ID → Desktop app**.
+5. Simpan Client ID + secret, lalu:
+   ```bash
+   rclone config update gdrive client_id=... client_secret=...
+   rclone config reconnect gdrive:
+   ```
+   atau `./gdrive-sync.sh setup` lalu pilih buat remote baru.
+
 ## Catatan
 
 - **`bisync` ke root My Drive diblokir.** Set `REMOTE_PATH` ke subfolder (mis. `Laptop`).

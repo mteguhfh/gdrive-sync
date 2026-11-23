@@ -48,6 +48,7 @@ load_config() {
     INTERVAL="5min"
     FILTER_FILE="$SCRIPT_DIR/filters.txt"
     SOURCES_FILE="$(dirname "$CONF_FILE")/sources.txt"
+    PARALLEL_JOBS=4
     EXTRA_FLAGS=()
 
     if [[ -f "$CONF_FILE" ]]; then
@@ -108,6 +109,8 @@ load_config() {
     [[ -n "$REMOTE_NAME" ]] || die "REMOTE_NAME kosong di $CONF_FILE"
     case "$MODE" in bisync|push|backup) ;; *) die "MODE harus 'bisync', 'push', atau 'backup' (sekarang: '$MODE')";; esac
     [[ "$INTERVAL" =~ ^[0-9]+(s|sec|min|m|h)$ ]] || die "INTERVAL tidak valid: '$INTERVAL' (contoh: 5min, 30min, 1h)"
+    [[ "$PARALLEL_JOBS" =~ ^[0-9]+$ ]] && (( PARALLEL_JOBS >= 1 && PARALLEL_JOBS <= 16 )) \
+        || die "PARALLEL_JOBS harus angka 1-16 (sekarang: '$PARALLEL_JOBS')"
 
     # REMOTE_NAME boleh berupa nama remote rclone ("gdrive") atau path lokal absolut (dipakai untuk testing).
     if [[ "$REMOTE_NAME" = /* ]]; then
@@ -225,42 +228,75 @@ cmd_sync() {
     chmod 600 "$LOG_FILE" 2>/dev/null || true
 
     local -a common=(--log-file "$LOG_FILE" --log-level INFO --stats-one-line --stats 0
-                     --drive-skip-gdocs)
+                     --drive-skip-gdocs
+                     --transfers 4 --checkers 8 --drive-chunk-size 32M --buffer-size 32M)
     [[ -f "$FILTER_FILE" ]] || FILTER_FILE=""
     (( dry_run )) && common+=(--dry-run)
 
     if [[ "$MODE" == "backup" ]]; then
         # backup: laptop -> Drive (copy only). Nothing on Drive is ever deleted by this mode.
         # Each source folder is mirrored under its own basename so multiple folders can coexist.
-        local rc=0 one_rc=0 dest
+        #
+        # rclone creates Drive directories one at a time inside a single process (~1.2 dirs/s
+        # on a real account), so one big copy can take tens of hours on a folder tree with
+        # thousands of directories. Splitting the tree into one job per top-level folder and
+        # running PARALLEL_JOBS of them at once scales almost linearly (measured ~4x at 4 jobs).
+        local rc=0 dest
+        local -a jobs=()
         local -a bcmd
+
         for src in "${sources[@]}"; do
             if ((${#sources[@]} == 1)); then
                 dest="$REMOTE"
             else
                 dest="$REMOTE/${src##*/}"
             fi
-            bcmd=(rclone copy "$src" "$dest" "${common[@]}" --create-empty-src-dirs)
-            [[ -n "$FILTER_FILE" ]] && bcmd+=(--filter-from "$FILTER_FILE")
-            ((${#EXTRA_FLAGS[@]})) && bcmd+=("${EXTRA_FLAGS[@]}")
             info "mulai backup: $src -> $dest$( ((dry_run)) && echo ' [dry-run]')"
             echo "=== $(date -Is) backup src=$src dest=$dest dry_run=$dry_run ===" >>"$LOG_FILE"
-            local log_start; log_start=$(wc -l <"$LOG_FILE")
-            "${bcmd[@]}" || one_rc=$?
-            if (( one_rc == 0 )); then
-                echo "=== $(date -Is) done OK ===" >>"$LOG_FILE"
-            else
-                echo "=== $(date -Is) FAILED rc=$one_rc ===" >>"$LOG_FILE"
-                rc=$one_rc
-                break
-            fi
+            jobs+=("$src|$dest|top")
+            while IFS= read -r -d '' child; do
+                # rclone copy of a completely empty dir does nothing, so create it explicitly.
+                if [[ -z "$(find "$child" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+                    jobs+=("$child|$dest/${child##*/}|empty")
+                else
+                    jobs+=("$child|$dest/${child##*/}|sub")
+                fi
+            done < <(find "$src" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -z)
         done
+
+        local job jsrc jdest jkind rest
+        local -a pids=()
+        for job in "${jobs[@]}"; do
+            jsrc="${job%%|*}"; rest="${job#*|}"; jdest="${rest%%|*}"; jkind="${rest##*|}"
+            if [[ "$jkind" == "empty" ]]; then
+                bcmd=(rclone mkdir "$jdest")
+                (( dry_run )) && bcmd+=(--dry-run)
+            else
+                bcmd=(rclone copy "$jsrc" "$jdest" "${common[@]}" --create-empty-src-dirs)
+                # Top-level files only; each subdirectory gets its own job below.
+                [[ "$jkind" == "top" ]] && bcmd+=(--max-depth 1 --exclude "*/**")
+                [[ -n "$FILTER_FILE" ]] && bcmd+=(--filter-from "$FILTER_FILE")
+                ((${#EXTRA_FLAGS[@]})) && bcmd+=("${EXTRA_FLAGS[@]}")
+            fi
+            "${bcmd[@]}" &
+            pids+=("$!")
+            while (($(jobs -rp | wc -l) >= PARALLEL_JOBS)); do
+                wait -n || rc=1
+            done
+        done
+        local pid
+        for pid in "${pids[@]}"; do
+            wait "$pid" || rc=1
+        done
+
         if (( rc == 0 )); then
+            echo "=== $(date -Is) done OK ===" >>"$LOG_FILE"
             info "selesai OK."
             return 0
         fi
+        echo "=== $(date -Is) FAILED ===" >>"$LOG_FILE"
         notify_fail "backup gagal; cek log: $LOG_FILE"
-        die "backup gagal (rc=$rc). cek log: $LOG_FILE"
+        die "backup gagal. cek log: $LOG_FILE"
     fi
 
     local -a cmd
@@ -546,8 +582,8 @@ cmd_logs() { ensure_dirs; touch "$LOG_FILE"; tail -n 50 -f "$LOG_FILE"; }
 
 cmd_config() {
     load_config
-    printf 'CONF_FILE=%s\nLOCAL_DIR=%s\nSOURCES_FILE=%s\nREMOTE=%s\nMODE=%s\nINTERVAL=%s\nFILTER_FILE=%s\nSTATE_DIR=%s\n' \
-        "$CONF_FILE" "$LOCAL_DIR" "$SOURCES_FILE" "$REMOTE" "$MODE" "$INTERVAL" "$FILTER_FILE" "$STATE_DIR"
+    printf 'CONF_FILE=%s\nLOCAL_DIR=%s\nSOURCES_FILE=%s\nREMOTE=%s\nMODE=%s\nINTERVAL=%s\nPARALLEL_JOBS=%s\nFILTER_FILE=%s\nSTATE_DIR=%s\n' \
+        "$CONF_FILE" "$LOCAL_DIR" "$SOURCES_FILE" "$REMOTE" "$MODE" "$INTERVAL" "$PARALLEL_JOBS" "$FILTER_FILE" "$STATE_DIR"
     if ((${#SOURCE_DIRS[@]})); then
         printf 'SOURCE_DIR=%s\n' "${SOURCE_DIRS[@]}"
     fi

@@ -160,6 +160,21 @@ check "second folder copied" test "$(cat "$R/pics/b.jpg" 2>/dev/null)" = pic
 check "empty dir copied" test -d "$R/docs/empty"
 check "no duplicate copy at remote root" test ! -e "$R/a.txt"
 
+echo "# backup mode: parallel jobs (PARALLEL_JOBS)"
+new_env par backup
+sed -i 's|^INTERVAL=.*|INTERVAL="5min"\nPARALLEL_JOBS="2"|' "$GDRIVE_SYNC_CONF"
+mkdir -p "$TMP/par/src/p1/deep/a" "$TMP/par/src/p2/deep/b" "$TMP/par/src/p3"
+echo top >"$TMP/par/src/top.txt"
+echo d1 >"$TMP/par/src/p1/deep/a/f1.txt"
+echo d2 >"$TMP/par/src/p2/deep/b/f2.txt"
+echo d3 >"$TMP/par/src/p3/f3.txt"
+printf '%s\n' "$TMP/par/src" >"$TMP/par/sources.txt"
+check "parallel backup exits 0" run sync
+check "top-level file copied" test "$(cat "$R/top.txt" 2>/dev/null)" = top
+check "deep file in first folder" test "$(cat "$R/p1/deep/a/f1.txt" 2>/dev/null)" = d1
+check "deep file in second folder" test "$(cat "$R/p2/deep/b/f2.txt" 2>/dev/null)" = d2
+check "backup run logged" test "$(grep -c 'backup src=' "$GDRIVE_SYNC_STATE_DIR/gdrive-sync.log")" -ge 1
+
 echo "# add-folder / remove-folder commands"
 new_env folders bisync
 mkdir -p "$TMP/folders/Docs" "$TMP/folders/Pics" "$TMP/folders/other/Docs"
@@ -230,6 +245,13 @@ expect_fail "bad MODE rejected" "MODE harus" sync
 new_env val3 bisync
 sed -i 's|^INTERVAL=.*|INTERVAL="5 minutes"|' "$GDRIVE_SYNC_CONF"
 expect_fail "bad INTERVAL rejected" "INTERVAL" sync
+new_env val6 bisync
+sed -i 's|^INTERVAL=.*|INTERVAL="5min"\nPARALLEL_JOBS="0"|' "$GDRIVE_SYNC_CONF"
+expect_fail "PARALLEL_JOBS=0 rejected" "PARALLEL_JOBS" sync
+sed -i 's|^PARALLEL_JOBS=.*|PARALLEL_JOBS="many"|' "$GDRIVE_SYNC_CONF"
+expect_fail "non-numeric PARALLEL_JOBS rejected" "PARALLEL_JOBS" sync
+sed -i 's|^PARALLEL_JOBS=.*|PARALLEL_JOBS="17"|' "$GDRIVE_SYNC_CONF"
+expect_fail "PARALLEL_JOBS above 16 rejected" "PARALLEL_JOBS" sync
 new_env val4 bisync
 rmdir "$L"
 expect_fail "missing local dir -> error" "tidak ada" sync
