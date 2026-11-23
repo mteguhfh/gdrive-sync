@@ -1,0 +1,34 @@
+# gdrive-sync config. Lokasi default: ~/.config/gdrive-sync/gdrive-sync.conf
+# File ini di-"source" oleh bash, jadi pakai sintaks bash (tanpa spasi di sekitar '=').
+
+# Folder di laptop yang mau di-sync (absolute path, bukan $HOME langsung).
+LOCAL_DIR="$HOME/GDrive"
+
+# Nama remote rclone untuk Google Drive (dibuat otomatis oleh 'gdrive-sync.sh setup').
+REMOTE_NAME="gdrive"
+
+# Folder di Google Drive. Kosong = root "My Drive" (seluruh Drive).
+# Disarankan pakai subfolder supaya aman, misal "Laptop".
+# MODE=bisync ke root diblokir; kalau memang mau, set GDRIVE_SYNC_ALLOW_ROOT=1.
+REMOTE_PATH="Laptop"
+
+# bisync = dua arah (edit di laptop atau di Drive, dua-duanya ikut ke-sync)
+# push   = satu arah laptop -> Drive (Drive jadi cermin laptop; file yang dihapus di laptop masuk Trash Drive)
+# backup = satu arah laptop -> Drive tanpa hapus (rclone copy; file di Drive yang tidak ada di laptop tetap aman)
+MODE="bisync"
+
+# Jarak antar sync otomatis (systemd timer). Contoh: 2min, 5min, 15min, 1h
+# Setelah ganti, jalankan ulang: gdrive-sync.sh install
+INTERVAL="5min"
+
+# File pola exclude/include rclone. Default: filters.txt di samping script.
+# FILTER_FILE="$HOME/.config/gdrive-sync/filters.txt"
+
+# Daftar folder untuk MODE=backup (satu path per baris). Jangan edit manual;
+# pakai: ./gdrive-sync.sh add-folder ~/Documents
+# Default: sources.txt di folder config yang sama.
+# SOURCES_FILE="$HOME/.config/gdrive-sync/sources.txt"
+
+# Flag tambahan rclone (array bash), misal batasi bandwidth:
+# EXTRA_FLAGS=(--bwlimit 2M --transfers 4)
+EXTRA_FLAGS=()

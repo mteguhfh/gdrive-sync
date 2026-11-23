@@ -1,0 +1,48 @@
+# rclone filter rules (https://rclone.org/filtering/). '- ' = exclude, '+ ' = include.
+# NOTE (bisync): kalau file ini diubah, gdrive-sync otomatis menjalankan --resync sekali.
+
+# File sementara editor / office
+- .~lock.*#
+- ~$*
+- *.tmp
+- *.swp
+- *.part
+- *.crdownload
+
+# Sampah OS
+- .DS_Store
+- Thumbs.db
+- desktop.ini
+- .Trash-*/**
+
+# Folder dev yang berat & bisa di-generate ulang (root + semua level)
+- node_modules/**
+- **/node_modules/**
+- __pycache__/**
+- **/__pycache__/**
+- .venv/**
+- **/.venv/**
+- .next/**
+- **/.next/**
+- .nuxt/**
+- **/.nuxt/**
+- .output/**
+- **/.output/**
+- .turbo/**
+- **/.turbo/**
+- .parcel-cache/**
+- **/.parcel-cache/**
+- .cache/**
+- **/.cache/**
+- .gradle/**
+- **/.gradle/**
+- coverage/**
+- **/coverage/**
+- dist/**
+- **/dist/**
+- build/**
+- **/build/**
+- target/**
+- **/target/**
+- vendor/**
+- **/vendor/**

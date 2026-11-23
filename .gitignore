@@ -1,0 +1,6 @@
+# rclone bisync filter hash (generated next to filters.txt)
+filters.txt.md5
+
+# Logs and local state
+*.log
+*.log.1
