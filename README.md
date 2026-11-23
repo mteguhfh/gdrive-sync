@@ -1,5 +1,8 @@
 # gdrive-sync — Sync folder laptop ↔ Google Drive (Linux)
 
+[![tests](https://github.com/mteguhfh/gdrive-sync/actions/workflows/test.yml/badge.svg)](https://github.com/mteguhfh/gdrive-sync/actions/workflows/test.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Pakai [rclone](https://rclone.org) + systemd user timer. Script ini tidak butuh daemon
 tambahan: tiap `INTERVAL` (default 5 menit) folder lokal dan folder di Drive disamakan.
 
@@ -102,3 +105,12 @@ folder default.
 Test pakai folder lokal sebagai "remote" palsu (tanpa akun Google): baseline, sync dua arah,
 konflik, dry-run, filter, lock, mode push/backup, guard root, recovery setelah error,
 generate unit systemd, rotasi log, validasi config.
+
+## Kontribusi
+
+Pull request dan issue terbuka untuk siapa saja. Baca [CONTRIBUTING.md](CONTRIBUTING.md)
+sebelum kirim perubahan: cara jalanin test, aturan gaya bash, dan format commit.
+
+- Situs: <https://mteguhfh.github.io/gdrive-sync/>
+- Kebijakan privasi: <https://mteguhfh.github.io/gdrive-sync/privacy.html>
+- Lisensi: [MIT](LICENSE)
