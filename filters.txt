@@ -46,3 +46,5 @@
 - **/target/**
 - vendor/**
 - **/vendor/**
+- .git/**
+- **/.git/**

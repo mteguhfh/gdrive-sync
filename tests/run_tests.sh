@@ -50,10 +50,10 @@ echo local-a >"$L/a.txt"
 echo remote-b >"$R/b.txt"
 echo junk >"$L/x.tmp"
 mkdir -p "$L/node_modules/pkg"; echo n >"$L/node_modules/pkg/i.js"
-mkdir -p "$L/app/.next/server" "$L/app/build/out" "$L/app/dist/out" "$L/app/node_modules/pkg" "$L/app/vendor/pkg"
+mkdir -p "$L/app/.next/server" "$L/app/build/out" "$L/app/dist/out" "$L/app/node_modules/pkg" "$L/app/vendor/pkg" "$L/app/.git/objects"
 echo n >"$L/app/.next/server/x.js"; echo b >"$L/app/build/out/x.js"
 echo d >"$L/app/dist/out/x.js"; echo n >"$L/app/node_modules/pkg/x.js"
-echo v >"$L/app/vendor/pkg/x.php"
+echo v >"$L/app/vendor/pkg/x.php"; echo g >"$L/app/.git/objects/x"
 check "first sync exits 0" run sync
 check "local file pushed"  test "$(cat "$R/a.txt" 2>/dev/null)" = local-a
 check "remote file pulled" test "$(cat "$L/b.txt" 2>/dev/null)" = remote-b
@@ -64,6 +64,7 @@ check "nested build excluded" test ! -e "$R/app/build"
 check "nested dist excluded" test ! -e "$R/app/dist"
 check "nested node_modules excluded" test ! -e "$R/app/node_modules"
 check "nested vendor excluded" test ! -e "$R/app/vendor"
+check "nested .git excluded" test ! -e "$R/app/.git"
 check "baseline marker written" compgen -G "$GDRIVE_SYNC_STATE_DIR/baseline-*" >/dev/null
 grep -q "resync=1" "$GDRIVE_SYNC_STATE_DIR/gdrive-sync.log" && ok "first run was resync" || bad "first run was resync"
 
