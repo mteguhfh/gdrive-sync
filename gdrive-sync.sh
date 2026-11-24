@@ -229,7 +229,7 @@ cmd_sync() {
 
     local -a common=(--log-file "$LOG_FILE" --log-level INFO --stats-one-line --stats 0
                      --drive-skip-gdocs
-                     --transfers 4 --checkers 8 --drive-chunk-size 32M --buffer-size 32M)
+                     --transfers 4 --checkers 8 --drive-chunk-size 32M --buffer-size 32M --fast-list)
     [[ -f "$FILTER_FILE" ]] || FILTER_FILE=""
     (( dry_run )) && common+=(--dry-run)
 
