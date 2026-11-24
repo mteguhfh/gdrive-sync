@@ -223,6 +223,10 @@ cmd_sync() {
         return 0
     fi
 
+    # systemctl stop sends SIGTERM. Without a trap the script dies with 143 and systemd
+    # records the unit as "failed", which looks like a real error to the user.
+    trap 'pkill -TERM -P $$ 2>/dev/null || true; info "sync dihentikan (SIGTERM)."; exit 0' TERM INT
+
     rotate_log
     touch "$LOG_FILE"
     chmod 600 "$LOG_FILE" 2>/dev/null || true

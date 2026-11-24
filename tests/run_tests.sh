@@ -264,6 +264,23 @@ run config; check "config cmd prints remote" grep -q "REMOTE=no-such-remote-xyz:
 run help;  check "help prints usage" grep -q "setup" "$TMP/out"
 check "help omits shell code" bash -c "! grep -q '^set -Eeuo pipefail$' '$TMP/out'"
 
+echo "# safety: SIGTERM (systemctl stop) exits 0, not 143"
+new_env sigterm backup
+mkdir -p "$TMP/sigbin" "$TMP/sigterm/src/a"
+cat >"$TMP/sigbin/rclone" <<'EOF'
+#!/bin/sh
+case "$1" in version) echo "rclone v1.76.0";; lsf|about) exit 0;; *) sleep 30;; esac
+EOF
+chmod +x "$TMP/sigbin/rclone"
+printf '%s\n' "$TMP/sigterm/src" >"$TMP/sigterm/sources.txt"
+PATH="$TMP/sigbin:$PATH" "$SCRIPT" sync >"$TMP/out" 2>&1 &
+sigpid=$!
+sleep 3
+kill -TERM "$sigpid" 2>/dev/null
+wait "$sigpid"; sigrc=$?
+check "SIGTERM exit code is 0" test "$sigrc" = 0
+check "SIGTERM message printed" grep -q "dihentikan" "$TMP/out"
+
 echo "# config: relative FILTER_FILE is resolved against the script dir"
 new_env relf bisync
 sed -i 's|^FILTER_FILE=.*|FILTER_FILE="filters.txt"|' "$GDRIVE_SYNC_CONF"
